@@ -103,18 +103,29 @@ class TransferOptimizer:
                 
                 # Transfer-out rule - Priority 2: RF type surplus transfer-out
                 elif (rp_type == 'RF' and 
-                      (net_stock + pending_received) > safety_stock and
-                      sold_qty != max_sold_qty):
-                    transferable = net_stock + pending_received - safety_stock
-                    suppliers.append({
-                        'article': article,
-                        'om': om,
-                        'site': site,
-                        'rp_type': rp_type,
-                        'transferable_qty': transferable,
-                        'priority': 2,
-                        'original_stock': net_stock
-                    })
+                      (float(net_stock) + float(pending_received)) > float(safety_stock) and
+                      float(sold_qty) != float(max_sold_qty)):
+                    # Calculate base transferable quantity
+                    transferable = float(net_stock) + float(pending_received) - float(safety_stock)
+                    
+                    # Apply 20% upper limit: max 20% of (net_stock + pending_received)
+                    max_transferable = int((float(net_stock) + float(pending_received)) * 0.2)
+                    transferable = min(transferable, max_transferable)
+                    
+                    # Apply minimum 2 pieces requirement
+                    if transferable < 2:
+                        transferable = 0
+                    
+                    if transferable > 0:
+                        suppliers.append({
+                            'article': article,
+                            'om': om,
+                            'site': site,
+                            'rp_type': rp_type,
+                            'transferable_qty': int(transferable),
+                            'priority': 2,
+                            'original_stock': int(net_stock)
+                        })
                 
                 # Receive rule - Priority 1: Emergency shortage replenishment
                 if (rp_type == 'RF' and 
@@ -248,7 +259,7 @@ class TransferOptimizer:
         logger.info(f"Output file generated: {output_file}")
         return output_file
     
-    def _generate_summary_dashboard(self, writer: pd.ExcelWriter, 
+    def _generate_summary_dashboard(self, writer, 
                                   transfer_suggestions: List[Dict[str, Any]], 
                                   original_df: pd.DataFrame):
         """Generate statistical summary"""
